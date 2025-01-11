@@ -6,6 +6,7 @@ let speed = 0.15;
 let colorIntensity = 8.0;
 let mouseX = 0;
 let mouseY = 0;
+let currentColors;
 
 const vertexShaderSource = `
     attribute vec4 position;
@@ -18,6 +19,13 @@ const fragmentShaderSource = `
     precision highp float;
     uniform vec2 resolution;
     uniform float time;
+    uniform float zoom;
+    uniform float speed;
+    uniform float colorIntensity;
+    uniform vec2 mouse;
+    uniform vec3 color1;
+    uniform vec3 color2;
+    uniform vec3 color3;
 
     vec2 complexMul(vec2 a, vec2 b) {
         return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
@@ -25,10 +33,11 @@ const fragmentShaderSource = `
 
     void main() {
         vec2 uv = (gl_FragCoord.xy - 0.5 * resolution.xy) / min(resolution.y, resolution.x);
+        uv = uv / zoom;
         
         vec2 c = vec2(
-            0.7885 * cos(time * 0.15),
-            0.7885 * sin(time * 0.15)
+            0.7885 * cos(time * speed) + mouse.x * 0.3,
+            0.7885 * sin(time * speed) + mouse.y * 0.3
         );
         
         vec2 z = uv;
@@ -44,10 +53,10 @@ const fragmentShaderSource = `
         vec3 color = vec3(0.0);
         if(iter < maxIter) {
             float f = iter / maxIter;
-            color = vec3(
-                0.5 + 0.5 * cos(3.0 + f * 8.0),
-                0.5 + 0.5 * cos(2.0 + f * 8.0),
-                0.5 + 0.5 * cos(1.0 + f * 8.0)
+            color = mix(
+                mix(color1, color2, cos(f * colorIntensity)),
+                color3,
+                sin(f * colorIntensity * 0.5)
             );
         }
         
@@ -67,6 +76,89 @@ function createShader(gl, type, source) {
     }
     return shader;
 }
+
+const presets = {
+    classic: {
+        zoom: 1.0,
+        speed: 0.15,
+        colorIntensity: 8.0,
+        colors: {
+            color1: [0.5, 0.0, 0.3],
+            color2: [0.0, 0.5, 0.8],
+            color3: [1.0, 0.7, 0.0]
+        }
+    },
+    psychedelic: {
+        zoom: 0.8,
+        speed: 0.25,
+        colorIntensity: 12.0,
+        colors: {
+            color1: [1.0, 0.1, 0.8],
+            color2: [0.2, 1.0, 0.0],
+            color3: [0.8, 0.3, 1.0]
+        }
+    },
+    ocean: {
+        zoom: 1.5,
+        speed: 0.08,
+        colorIntensity: 5.0,
+        colors: {
+            color1: [0.0, 0.2, 0.4],
+            color2: [0.0, 0.5, 0.5],
+            color3: [0.2, 0.8, 0.8]
+        }
+    },
+    sunset: {
+        zoom: 1.2,
+        speed: 0.12,
+        colorIntensity: 6.0,
+        colors: {
+            color1: [0.8, 0.0, 0.0],
+            color2: [1.0, 0.4, 0.1],
+            color3: [0.8, 0.7, 0.3]
+        }
+    },
+    forest: {
+        zoom: 1.3,
+        speed: 0.1,
+        colorIntensity: 7.0,
+        colors: {
+            color1: [0.0, 0.3, 0.0],
+            color2: [0.2, 0.5, 0.1],
+            color3: [0.6, 0.8, 0.2]
+        }
+    },
+    galaxy: {
+        zoom: 0.9,
+        speed: 0.18,
+        colorIntensity: 10.0,
+        colors: {
+            color1: [0.1, 0.0, 0.2],
+            color2: [0.5, 0.0, 1.0],
+            color3: [1.0, 0.8, 1.0]
+        }
+    },
+    lava: {
+        zoom: 1.1,
+        speed: 0.2,
+        colorIntensity: 9.0,
+        colors: {
+            color1: [0.5, 0.0, 0.0],
+            color2: [1.0, 0.2, 0.0],
+            color3: [1.0, 0.8, 0.0]
+        }
+    },
+    arctic: {
+        zoom: 1.4,
+        speed: 0.05,
+        colorIntensity: 4.0,
+        colors: {
+            color1: [0.0, 0.2, 0.3],
+            color2: [0.5, 0.7, 0.8],
+            color3: [1.0, 1.0, 1.0]
+        }
+    }
+};
 
 function init() {
     const canvas = document.getElementById('glCanvas');
@@ -115,50 +207,32 @@ function init() {
     gl.enableVertexAttribArray(positionLocation);
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
     
-    // Adicionar eventos
-    setupEvents();
+    // Inicializar cores
+    currentColors = presets.classic.colors;
     
+    setupEvents();
     animate();
 }
 
-const presets = {
-    classic: {
-        zoom: 1.0,
-        speed: 0.15,
-        colorIntensity: 8.0
-    },
-    psychedelic: {
-        zoom: 0.8,
-        speed: 0.25,
-        colorIntensity: 12.0
-    },
-    ocean: {
-        zoom: 1.5,
-        speed: 0.08,
-        colorIntensity: 5.0
-    }
-};
-
 function setupEvents() {
-    // Controles de range com valores atualizados
-    const rangeControls = ['zoom', 'speed', 'colorIntensity'];
-    rangeControls.forEach(control => {
-        const input = document.getElementById(control);
-        const valueSpan = document.getElementById(`${control}Value`);
-        
-        input.addEventListener('input', (e) => {
-            const value = parseFloat(e.target.value);
-            window[control] = value;
-            valueSpan.textContent = value.toFixed(1) + (control === 'speed' ? 'x' : '');
-        });
-    });
+    // Controles deslizantes
+    const rangeInputs = {
+        zoom: document.getElementById('zoom'),
+        speed: document.getElementById('speed'),
+        colorIntensity: document.getElementById('colorIntensity')
+    };
 
-    // Menu mobile
-    const menuToggle = document.querySelector('.menu-toggle');
-    const controlsPanel = document.querySelector('.controls');
-    
-    menuToggle?.addEventListener('click', () => {
-        controlsPanel.classList.toggle('active');
+    // Adicionar listeners para cada controle
+    Object.entries(rangeInputs).forEach(([key, input]) => {
+        if (input) {
+            input.addEventListener('input', (e) => {
+                window[key] = parseFloat(e.target.value);
+                const valueSpan = document.getElementById(`${key}Value`);
+                if (valueSpan) {
+                    valueSpan.textContent = e.target.value + (key === 'speed' ? 'x' : '');
+                }
+            });
+        }
     });
 
     // Presets
@@ -166,43 +240,23 @@ function setupEvents() {
         btn.addEventListener('click', () => {
             const preset = presets[btn.dataset.preset];
             if (preset) {
-                Object.entries(preset).forEach(([key, value]) => {
-                    window[key] = value;
-                    const input = document.getElementById(key);
-                    const valueSpan = document.getElementById(`${key}Value`);
-                    if (input) input.value = value;
-                    if (valueSpan) valueSpan.textContent = value.toFixed(1) + (key === 'speed' ? 'x' : '');
-                });
+                // Atualizar valores
+                zoom = preset.zoom;
+                speed = preset.speed;
+                colorIntensity = preset.colorIntensity;
+                currentColors = preset.colors;
+
+                // Atualizar interface
+                rangeInputs.zoom.value = preset.zoom;
+                rangeInputs.speed.value = preset.speed;
+                rangeInputs.colorIntensity.value = preset.colorIntensity;
             }
         });
     });
 
-    // Touch events para mobile
-    let touchStartX = 0;
-    let touchStartY = 0;
-
-    gl.canvas.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        const touch = e.touches[0];
-        touchStartX = touch.clientX;
-        touchStartY = touch.clientY;
-        updateMousePosition(touch.clientX, touch.clientY);
-    });
-
-    gl.canvas.addEventListener('touchmove', (e) => {
-        e.preventDefault();
-        const touch = e.touches[0];
-        updateMousePosition(touch.clientX, touch.clientY);
-    });
-
-    // Mouse events
+    // Mouse/Touch events
     gl.canvas.addEventListener('mousemove', (e) => {
         updateMousePosition(e.clientX, e.clientY);
-    });
-
-    // Resize handler
-    window.addEventListener('resize', () => {
-        resizeCanvas();
     });
 }
 
@@ -210,17 +264,6 @@ function updateMousePosition(clientX, clientY) {
     const rect = gl.canvas.getBoundingClientRect();
     mouseX = (clientX - rect.left) / gl.canvas.width * 2 - 1;
     mouseY = -((clientY - rect.top) / gl.canvas.height * 2 - 1);
-}
-
-function resizeCanvas() {
-    const pixelRatio = window.devicePixelRatio || 1;
-    const width = Math.min(800, window.innerWidth - 100);
-    const height = Math.min(800, window.innerHeight - 100);
-    
-    gl.canvas.width = width * pixelRatio;
-    gl.canvas.height = height * pixelRatio;
-    gl.canvas.style.width = width + 'px';
-    gl.canvas.style.height = height + 'px';
 }
 
 function animate() {
@@ -246,6 +289,14 @@ function animate() {
     
     const mouseLocation = gl.getUniformLocation(program, 'mouse');
     gl.uniform2f(mouseLocation, mouseX, mouseY);
+    
+    const color1Location = gl.getUniformLocation(program, 'color1');
+    const color2Location = gl.getUniformLocation(program, 'color2');
+    const color3Location = gl.getUniformLocation(program, 'color3');
+    
+    gl.uniform3fv(color1Location, currentColors.color1);
+    gl.uniform3fv(color2Location, currentColors.color2);
+    gl.uniform3fv(color3Location, currentColors.color3);
     
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     

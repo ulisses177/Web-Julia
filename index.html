@@ -133,10 +133,29 @@
             cursor: pointer;
             font-size: 14px;
             transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
         }
 
         .preset-btn:hover {
             background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .preset-btn:active {
+            transform: translateY(0);
+        }
+
+        .preset-btn::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(to right, var(--color1, rgba(255,255,255,0.5)), var(--color2, rgba(255,255,255,0.5)));
+            opacity: 0.7;
         }
 
         @media (max-width: 768px) {
@@ -180,6 +199,11 @@
             <button class="preset-btn" data-preset="classic">Clássico</button>
             <button class="preset-btn" data-preset="psychedelic">Psicodélico</button>
             <button class="preset-btn" data-preset="ocean">Oceano</button>
+            <button class="preset-btn" data-preset="sunset">Pôr do Sol</button>
+            <button class="preset-btn" data-preset="forest">Floresta</button>
+            <button class="preset-btn" data-preset="galaxy">Galáxia</button>
+            <button class="preset-btn" data-preset="lava">Lava</button>
+            <button class="preset-btn" data-preset="arctic">Ártico</button>
         </div>
 
         <div class="menu-toggle">
