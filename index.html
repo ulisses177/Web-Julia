@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fractal de Julia Interativo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body {
+            margin: 0;
+            background: #000;
+            color: #fff;
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            align-items: center;
+            justify-content: center;
+        }
+
+        canvas {
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+            touch-action: none;
+        }
+
+        .controls {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: opacity 0.3s ease;
+            opacity: 0.2;
+        }
+
+        .controls:hover,
+        .controls.active {
+            opacity: 1;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+        }
+
+        label span {
+            opacity: 0.5;
+            font-size: 12px;
+        }
+
+        input[type="range"] {
+            width: 200px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            height: 4px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #fff;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .menu-toggle {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .info {
+            position: fixed;
+            left: 20px;
+            bottom: 20px;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 14px;
+            transition: opacity 0.3s ease;
+            opacity: 0.5;
+        }
+
+        .info:hover {
+            opacity: 1;
+        }
+
+        .preset-buttons {
+            position: fixed;
+            left: 20px;
+            top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .preset-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.8);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .preset-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                right: 10px;
+                left: 10px;
+                bottom: 10px;
+                top: auto;
+                transform: translateY(100%);
+                transition: transform 0.3s ease;
+            }
+
+            .controls.active {
+                transform: translateY(0);
+            }
+
+            .menu-toggle {
+                display: flex;
+                bottom: 20px;
+                top: auto;
+            }
+
+            input[type="range"] {
+                width: 100%;
+            }
+
+            .preset-buttons {
+                top: auto;
+                bottom: 70px;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <canvas id="glCanvas"></canvas>
+        
+        <div class="preset-buttons">
+            <button class="preset-btn" data-preset="classic">Clássico</button>
+            <button class="preset-btn" data-preset="psychedelic">Psicodélico</button>
+            <button class="preset-btn" data-preset="ocean">Oceano</button>
+        </div>
+
+        <div class="menu-toggle">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="4" y1="12" x2="20" y2="12"></line>
+                <line x1="4" y1="6" x2="20" y2="6"></line>
+                <line x1="4" y1="18" x2="20" y2="18"></line>
+            </svg>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>
+                    Zoom
+                    <span id="zoomValue">1.0x</span>
+                </label>
+                <input type="range" id="zoom" min="0.5" max="2.5" step="0.1" value="1.0">
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    Velocidade
+                    <span id="speedValue">1.0x</span>
+                </label>
+                <input type="range" id="speed" min="0" max="0.3" step="0.01" value="0.15">
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    Intensidade
+                    <span id="colorValue">8.0</span>
+                </label>
+                <input type="range" id="colorIntensity" min="1" max="15" step="0.5" value="8">
+            </div>
+        </div>
+
+        <div class="info">
+            Toque ou mova o mouse para interagir
+        </div>
+    </div>
+    <script src="fractal.js"></script>
+</body>
+</html> 
