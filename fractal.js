@@ -8,75 +8,6 @@ let mouseX = 0;
 let mouseY = 0;
 let currentColors;
 
-const vertexShaderSource = `
-    attribute vec4 position;
-    void main() {
-        gl_Position = position;
-    }
-`;
-
-const fragmentShaderSource = `
-    precision highp float;
-    uniform vec2 resolution;
-    uniform float time;
-    uniform float zoom;
-    uniform float speed;
-    uniform float colorIntensity;
-    uniform vec2 mouse;
-    uniform vec3 color1;
-    uniform vec3 color2;
-    uniform vec3 color3;
-
-    vec2 complexMul(vec2 a, vec2 b) {
-        return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
-    }
-
-    void main() {
-        vec2 uv = (gl_FragCoord.xy - 0.5 * resolution.xy) / min(resolution.y, resolution.x);
-        uv = uv / zoom;
-        
-        vec2 c = vec2(
-            0.7885 * cos(time * speed) + mouse.x * 0.3,
-            0.7885 * sin(time * speed) + mouse.y * 0.3
-        );
-        
-        vec2 z = uv;
-        float iter = 0.0;
-        const float maxIter = 100.0;
-        
-        for(float i = 0.0; i < maxIter; i++) {
-            z = complexMul(z, z) + c;
-            if(length(z) > 2.0) break;
-            iter++;
-        }
-        
-        vec3 color = vec3(0.0);
-        if(iter < maxIter) {
-            float f = iter / maxIter;
-            color = mix(
-                mix(color1, color2, cos(f * colorIntensity)),
-                color3,
-                sin(f * colorIntensity * 0.5)
-            );
-        }
-        
-        gl_FragColor = vec4(color, 1.0);
-    }
-`;
-
-function createShader(gl, type, source) {
-    const shader = gl.createShader(type);
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-    
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        console.error(gl.getShaderInfoLog(shader));
-        gl.deleteShader(shader);
-        return null;
-    }
-    return shader;
-}
-
 const presets = {
     classic: {
         zoom: 1.0,
@@ -160,6 +91,75 @@ const presets = {
     }
 };
 
+const vertexShaderSource = `
+    attribute vec4 position;
+    void main() {
+        gl_Position = position;
+    }
+`;
+
+const fragmentShaderSource = `
+    precision highp float;
+    uniform vec2 resolution;
+    uniform float time;
+    uniform float zoom;
+    uniform float speed;
+    uniform float colorIntensity;
+    uniform vec2 mouse;
+    uniform vec3 color1;
+    uniform vec3 color2;
+    uniform vec3 color3;
+
+    vec2 complexMul(vec2 a, vec2 b) {
+        return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
+    }
+
+    void main() {
+        vec2 uv = (gl_FragCoord.xy - 0.5 * resolution.xy) / min(resolution.y, resolution.x);
+        uv = uv / zoom;
+        
+        vec2 c = vec2(
+            0.7885 * cos(time * speed) + mouse.x * 0.3,
+            0.7885 * sin(time * speed) + mouse.y * 0.3
+        );
+        
+        vec2 z = uv;
+        float iter = 0.0;
+        const float maxIter = 100.0;
+        
+        for(float i = 0.0; i < maxIter; i++) {
+            z = complexMul(z, z) + c;
+            if(length(z) > 2.0) break;
+            iter++;
+        }
+        
+        vec3 color = vec3(0.0);
+        if(iter < maxIter) {
+            float f = iter / maxIter;
+            color = mix(
+                mix(color1, color2, cos(f * colorIntensity)),
+                color3,
+                sin(f * colorIntensity * 0.5)
+            );
+        }
+        
+        gl_FragColor = vec4(color, 1.0);
+    }
+`;
+
+function createShader(gl, type, source) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+        return null;
+    }
+    return shader;
+}
+
 function init() {
     const canvas = document.getElementById('glCanvas');
     gl = canvas.getContext('webgl');
@@ -170,11 +170,7 @@ function init() {
     }
     
     // Configurar tamanho do canvas
-    const pixelRatio = window.devicePixelRatio || 1;
-    canvas.width = 800 * pixelRatio;
-    canvas.height = 800 * pixelRatio;
-    canvas.style.width = '800px';
-    canvas.style.height = '800px';
+    resizeCanvas();
     
     // Criar programa WebGL
     const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
@@ -210,6 +206,9 @@ function init() {
     // Inicializar cores
     currentColors = presets.classic.colors;
     
+    // Adicionar botões de presets se necessário
+    // (Já estão no HTML, então não precisamos adicionar via JS)
+    
     setupEvents();
     animate();
 }
@@ -222,22 +221,21 @@ function setupEvents() {
         colorIntensity: document.getElementById('colorIntensity')
     };
 
-    // Adicionar listeners para cada controle
+    // Atualizar os valores das spans ao mover os sliders
     Object.entries(rangeInputs).forEach(([key, input]) => {
-        if (input) {
+        const valueSpan = document.getElementById(`${key}Value`);
+        if (input && valueSpan) {
             input.addEventListener('input', (e) => {
-                window[key] = parseFloat(e.target.value);
-                const valueSpan = document.getElementById(`${key}Value`);
-                if (valueSpan) {
-                    valueSpan.textContent = e.target.value + (key === 'speed' ? 'x' : '');
-                }
+                const value = parseFloat(e.target.value);
+                window[key] = value;
+                valueSpan.textContent = (key === 'speed' ? value.toFixed(2) + 'x' : value.toFixed(1));
             });
         }
     });
 
     // Presets
     document.querySelectorAll('.preset-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
             const preset = presets[btn.dataset.preset];
             if (preset) {
                 // Atualizar valores
@@ -247,16 +245,67 @@ function setupEvents() {
                 currentColors = preset.colors;
 
                 // Atualizar interface
-                rangeInputs.zoom.value = preset.zoom;
-                rangeInputs.speed.value = preset.speed;
-                rangeInputs.colorIntensity.value = preset.colorIntensity;
+                if (rangeInputs.zoom) rangeInputs.zoom.value = preset.zoom;
+                if (rangeInputs.speed) rangeInputs.speed.value = preset.speed;
+                if (rangeInputs.colorIntensity) rangeInputs.colorIntensity.value = preset.colorIntensity;
+
+                // Atualizar os spans
+                const zoomSpan = document.getElementById('zoomValue');
+                const speedSpan = document.getElementById('speedValue');
+                const colorSpan = document.getElementById('colorIntensityValue');
+
+                if (zoomSpan) zoomSpan.textContent = preset.zoom.toFixed(1) + 'x';
+                if (speedSpan) speedSpan.textContent = preset.speed.toFixed(2) + 'x';
+                if (colorSpan) colorSpan.textContent = preset.colorIntensity.toFixed(1);
             }
         });
     });
 
-    // Mouse/Touch events
+    // Menu mobile toggle
+    const menuToggle = document.querySelector('.menu-toggle');
+    const controlsPanel = document.querySelector('.controls');
+
+    menuToggle?.addEventListener('click', (e) => {
+        e.stopPropagation(); // Evita que o clique passe para o documento
+        controlsPanel.classList.toggle('active');
+        menuToggle.classList.toggle('active');
+    });
+
+    // Fechar o menu ao clicar fora
+    document.addEventListener('click', (e) => {
+        if (!controlsPanel.contains(e.target) && !menuToggle.contains(e.target)) {
+            if (controlsPanel.classList.contains('active')) {
+                controlsPanel.classList.remove('active');
+                menuToggle.classList.remove('active');
+            }
+        }
+    });
+
+    // Evitar fechamento ao clicar dentro do menu
+    controlsPanel.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+
+    // Eventos de mouse e touch
     gl.canvas.addEventListener('mousemove', (e) => {
         updateMousePosition(e.clientX, e.clientY);
+    });
+
+    gl.canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        updateMousePosition(touch.clientX, touch.clientY);
+    });
+
+    gl.canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        updateMousePosition(touch.clientX, touch.clientY);
+    });
+
+    // Ajuste responsivo
+    window.addEventListener('resize', () => {
+        resizeCanvas();
     });
 }
 
@@ -264,6 +313,17 @@ function updateMousePosition(clientX, clientY) {
     const rect = gl.canvas.getBoundingClientRect();
     mouseX = (clientX - rect.left) / gl.canvas.width * 2 - 1;
     mouseY = -((clientY - rect.top) / gl.canvas.height * 2 - 1);
+}
+
+function resizeCanvas() {
+    const pixelRatio = window.devicePixelRatio || 1;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    gl.canvas.width = width * pixelRatio;
+    gl.canvas.height = height * pixelRatio;
+    gl.canvas.style.width = width + 'px';
+    gl.canvas.style.height = height + 'px';
 }
 
 function animate() {
